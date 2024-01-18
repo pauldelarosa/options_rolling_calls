@@ -1,0 +1,246 @@
+from datetime import datetime, timedelta
+
+from lumibot.backtesting import PolygonDataBacktesting
+from lumibot.entities import Asset, TradingFee
+from lumibot.strategies.strategy import Strategy
+from lumibot.traders import Trader
+
+"""
+Strategy Description
+
+This strategy will buy call options on a predetermined schedule. The call options will
+be sold when they are about to expire, and new call options will be bought. The call
+options will be bought with a strike price that is a certain percentage above the
+current price of the underlying asset.
+
+"""
+
+
+class OptionsRollingCalls(Strategy):
+    parameters = {
+        "symbol": "QQQ",  # The symbol that we will be using to buy call options
+        "fixed_income_symbol": "USFR",  # The fixed income ETF that we will be using
+        "pct_call_out_of_money": 0.0,  # How far out of the money the call should be
+        # How much of the portfolio should be in call options
+        "pct_portfolio_in_calls": 0.06,
+        "days_to_expiry": 10,  # How many days until the call option expires when we buy it
+        "days_before_expiry_to_sell": 1,  # How many days before expiry to sell the call (if None, hold until expiry)
+    }
+
+    def initialize(self):
+        # There is only one trading operation per day
+        # No need to sleep between iterations
+        self.sleeptime = "1D"
+
+        self.invalid_expiry_dates = []
+
+    def on_trading_iteration(self):
+        symbol = self.parameters["symbol"]
+        fixed_income_symbol = self.parameters["fixed_income_symbol"]
+        pct_call_out_of_money = self.parameters["pct_call_out_of_money"]
+        pct_portfolio_in_calls = self.parameters["pct_portfolio_in_calls"]
+        days_to_expiry = self.parameters["days_to_expiry"]
+        days_before_expiry_to_sell = self.parameters["days_before_expiry_to_sell"]
+
+        # Get the price of the unleveraged asset
+        fixed_income_price = self.get_last_price(fixed_income_symbol)
+
+        # Add a lines to our chart for the fixed income symbol
+        self.add_line(fixed_income_symbol, fixed_income_price, "red")
+
+        # Get all our positions
+        positions = self.get_positions()
+
+        # Get the amount of cash we have
+        cash = self.get_cash()
+
+        # If we have extra cash, buy more of the fixed income ETF
+        if cash > (fixed_income_price * 2):
+            # Buy more of the stock with the extra cash
+
+            # Calculate the quantity of the asset we can buy
+            quantity = cash // fixed_income_price
+
+            # If we have enough cash to buy at least one share, buy
+            if quantity >= 1:
+                order = self.create_order(fixed_income_symbol, quantity, "buy")
+                self.submit_order(order)
+
+                # Add a marker to our chart for when we bought
+                self.add_marker(
+                    f"Buy {fixed_income_symbol}",
+                    symbol="triangle-up",
+                    value=fixed_income_price,
+                    color="green",
+                )
+
+        # Get the current price of the underlying asset
+        underlying_price = self.get_last_price(symbol)
+        self.add_line(symbol, underlying_price, "blue")
+
+        # Check if we currently own any calls, if we don't, buy some
+        own_calls = False
+        for position in positions:
+            if (
+                position.asset.asset_type == "option"
+                and position.asset.right == "CALL"
+                and position.asset.symbol == symbol
+            ):
+                own_calls = True
+
+                # Check if the call option is about to expire
+                dt = self.get_datetime().date()
+                dt_to_expiry = position.asset.expiration - dt
+                if days_before_expiry_to_sell is not None and dt_to_expiry < timedelta(
+                    days=days_before_expiry_to_sell
+                ):
+                    # If the call option is about to expire, sell it
+                    order = self.create_order(position.asset, position.quantity, "sell")
+                    self.submit_order(order)
+
+                    # Add a marker to our chart for when we sold
+                    self.add_marker(
+                        f"Sell {position.asset}",
+                        symbol="triangle-down",
+                        value=underlying_price,
+                        color="red",
+                    )
+
+                    # Sleep for 5 seconds to make sure the order goes through
+                    self.sleep(5)
+
+                break
+
+        # If we don't own any calls, buy some
+        if not own_calls:
+            # Get the current value of our portfolio
+            portfolio_value = self.get_portfolio_value()
+
+            # Get how much cash we should call into the calls
+            cash_in_calls = portfolio_value * pct_portfolio_in_calls
+
+            # Get the current datetime
+            dt = self.get_datetime()
+
+            # Get the day around when we want to buy the calls
+            expiry_date_idea = dt + timedelta(days=days_to_expiry)
+
+            # Get the options expiration date
+            expiry_date = self.get_option_expiration_after_date(expiry_date_idea)
+
+            # If we have already tried to buy calls with this expiry date, skip
+            if expiry_date in self.invalid_expiry_dates:
+                return
+
+            # Get the strike price
+            strike = underlying_price * (1 + pct_call_out_of_money)
+
+            # Round the strike price to the nearest 5 dollars
+            strike = round(strike / 5) * 5
+
+            # Create the call asset
+            call_asset = Asset(symbol, "option", expiry_date, strike, "call")
+
+            # Get the last price of the call
+            call_price = self.get_last_price(call_asset)
+
+            # We can't buy calls if we don't know the price (maybe it doesn't exist?)
+            if call_price is None:
+                # Add the expiry date to the list of invalid expiry dates
+                self.invalid_expiry_dates.append(expiry_date)
+
+                return
+
+            # Calculate the quantity of calls we can buy (100 shares per contract)
+            calls_quantity = cash_in_calls / call_price // 100
+
+            # If we have enough cash to buy at least one call, buy
+            if calls_quantity >= 1:
+                # First, sell some of the stock to buy calls
+
+                # Get the quantity of the symbol to sell
+                symbol_sell_quantity = cash_in_calls // fixed_income_price
+
+                # If we should sell at least one share, sell
+                if symbol_sell_quantity >= 1:
+                    order = self.create_order(
+                        fixed_income_symbol, symbol_sell_quantity, "sell"
+                    )
+                    self.submit_order(order)
+
+                    # Add a marker to our chart for when we sold
+                    self.add_marker(
+                        f"Sell {fixed_income_symbol}",
+                        symbol="triangle-down",
+                        value=fixed_income_price,
+                        color="red",
+                    )
+
+                    # Sleep for 5 seconds to make sure the order goes through
+                    self.sleep(5)
+
+                # Second, buy the calls
+                # Create the order
+                calls_order = self.create_order(call_asset, calls_quantity, "buy")
+                self.submit_order(calls_order)
+
+                # Add a marker to our chart for when we bought
+                self.add_marker(
+                    f"Buy Call at {call_asset}",
+                    symbol="triangle-up",
+                    value=call_price,
+                    color="green",
+                    detail_text=f"Strike: {strike}",
+                )
+
+
+if __name__ == "__main__":
+    import os
+
+    # Check if we are backtesting or not
+    IS_BACKTESTING = os.environ.get("IS_BACKTESTING")
+
+    if not IS_BACKTESTING or IS_BACKTESTING.lower() == "false":
+        ####
+        # Run the strategy live
+        ####
+
+        trader = Trader()
+
+        from credentials import TRADIER_CONFIG
+        from lumibot.brokers import Tradier
+
+        broker = Tradier(TRADIER_CONFIG)
+
+        strategy = OptionsRollingCalls(broker=broker)
+        trader.add_strategy(strategy)
+        trader.run_all()
+
+    else:
+        ############################################
+        # Backtest the strategy
+        ############################################
+        from credentials import POLYGON_CONFIG
+
+        ####
+        # Configuration Options
+        ####
+
+        backtesting_start = datetime(2020, 1, 1)
+        backtesting_end = datetime(2023, 10, 20)
+        trading_fee = TradingFee(percent_fee=0.001)  # 0.1% fee per trade
+
+        ####
+        # Start Backtesting
+        ####
+
+        OptionsRollingCalls.backtest(
+            PolygonDataBacktesting,
+            backtesting_start,
+            backtesting_end,
+            benchmark_asset="QQQ",
+            buy_trading_fees=[trading_fee],
+            sell_trading_fees=[trading_fee],
+            polygon_api_key=POLYGON_CONFIG["API_KEY"],
+            polygon_has_paid_subscription=True,
+        )
