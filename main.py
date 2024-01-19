@@ -1,10 +1,11 @@
 from datetime import datetime, timedelta
 
-from credentials import IS_BACKTESTING
 from lumibot.backtesting import PolygonDataBacktesting
 from lumibot.entities import Asset, TradingFee
 from lumibot.strategies.strategy import Strategy
 from lumibot.traders import Trader
+
+from credentials import IS_BACKTESTING
 
 """
 Strategy Description
@@ -59,6 +60,11 @@ class OptionsRollingCalls(Strategy):
 
         # If we have extra cash, buy more of the fixed income ETF
         if cash > (fixed_income_price * 2):
+            # Log that we are buying more of the fixed income ETF
+            self.log_message(
+                f"Buying more of the fixed income ETF {fixed_income_symbol} because we have extra cash"
+            )
+
             # Buy more of the stock with the extra cash
 
             # Calculate the quantity of the asset we can buy
@@ -76,6 +82,11 @@ class OptionsRollingCalls(Strategy):
                     value=fixed_income_price,
                     color="green",
                 )
+        else:
+            # Log that we are not buying more of the fixed income ETF
+            self.log_message(
+                f"Not buying more of the fixed income ETF {fixed_income_symbol} because we don't have extra cash"
+            )
 
         # Get the current price of the underlying asset
         underlying_price = self.get_last_price(symbol)
@@ -116,6 +127,9 @@ class OptionsRollingCalls(Strategy):
 
         # If we don't own any calls, buy some
         if not own_calls:
+            # Log that we are buying calls
+            self.log_message(f"Buying calls on {symbol} because we don't own any")
+
             # Get the current value of our portfolio
             portfolio_value = self.get_portfolio_value()
 
@@ -195,6 +209,11 @@ class OptionsRollingCalls(Strategy):
                     color="green",
                     detail_text=f"Strike: {strike}",
                 )
+        else:
+            # Log that we are not buying calls
+            self.log_message(
+                f"Not buying calls on {symbol} because we already own some"
+            )
 
 
 if __name__ == "__main__":
@@ -205,8 +224,9 @@ if __name__ == "__main__":
 
         trader = Trader()
 
-        from credentials import TRADIER_CONFIG
         from lumibot.brokers import Tradier
+
+        from credentials import TRADIER_CONFIG
 
         broker = Tradier(TRADIER_CONFIG)
 
