@@ -1,5 +1,6 @@
 from datetime import datetime, timedelta
 
+from credentials import IS_BACKTESTING
 from lumibot.backtesting import PolygonDataBacktesting
 from lumibot.entities import Asset, TradingFee
 from lumibot.strategies.strategy import Strategy
@@ -8,10 +9,10 @@ from lumibot.traders import Trader
 """
 Strategy Description
 
-This strategy will buy call options on a predetermined schedule. The call options will
-be sold when they are about to expire, and new call options will be bought. The call
+This strategy will use a percentage of the account to buy call options on a predetermined schedule.
+The call options will be sold when they are about to expire, and new call options will be bought. The call
 options will be bought with a strike price that is a certain percentage above the
-current price of the underlying asset.
+current price of the underlying asset. The remaining account balance will be used to buy a fixed income ETF.
 
 """
 
@@ -26,6 +27,8 @@ class OptionsRollingCalls(Strategy):
         "days_to_expiry": 10,  # How many days until the call option expires when we buy it
         "days_before_expiry_to_sell": 1,  # How many days before expiry to sell the call (if None, hold until expiry)
     }
+
+    strategy_name = f"Options Rolling Calls on {parameters['symbol']} with {parameters['pct_portfolio_in_calls']*100}% of portfolio in calls"
 
     def initialize(self):
         # There is only one trading operation per day
@@ -195,12 +198,7 @@ class OptionsRollingCalls(Strategy):
 
 
 if __name__ == "__main__":
-    import os
-
-    # Check if we are backtesting or not
-    IS_BACKTESTING = os.environ.get("IS_BACKTESTING")
-
-    if not IS_BACKTESTING or IS_BACKTESTING.lower() == "false":
+    if not IS_BACKTESTING:
         ####
         # Run the strategy live
         ####
@@ -227,7 +225,7 @@ if __name__ == "__main__":
         ####
 
         backtesting_start = datetime(2020, 1, 1)
-        backtesting_end = datetime(2023, 10, 20)
+        backtesting_end = datetime(2024, 1, 17)
         trading_fee = TradingFee(percent_fee=0.001)  # 0.1% fee per trade
 
         ####
@@ -243,4 +241,5 @@ if __name__ == "__main__":
             sell_trading_fees=[trading_fee],
             polygon_api_key=POLYGON_CONFIG["API_KEY"],
             polygon_has_paid_subscription=True,
+            name=OptionsRollingCalls.strategy_name,
         )

@@ -18,9 +18,10 @@ By using this strategy and code, you acknowledge and agree to the terms outlined
 
 # Strategy Description
 
-This strategy buys crypto that are trending up based on two EMAs. It sells all the 
-cryptos that are not trending up that it currently owns and buys the cryptos that are 
-trending up that it does not currently own.
+This strategy will use a percentage of the account to buy call options on a predetermined schedule.
+The call options will be sold when they are about to expire, and new call options will be bought. The call
+options will be bought with a strike price that is a certain percentage above the
+current price of the underlying asset. The remaining account balance will be used to buy a fixed income ETF.
 
 # Getting Started
 
@@ -28,7 +29,7 @@ To run this strategy on Replit you need to click the "Run on Repl.it" button bel
  
 ### TIP: Right click on the button and open it in a new tab so that you can see the instructions while you are setting up the strategy (otherwise you will have to press the back button to see the instructions again).
 
-[![Run on Repl.it](https://replit.com/badge/github/Lumiwealth-Strategies/crypto_double_ema_trending)](https://replit.com/new/github/Lumiwealth-Strategies/crypto_double_ema_trending)
+[![Run on Repl.it](https://replit.com/badge/github/Lumiwealth-Strategies/options_rolling_calls)](https://replit.com/new/github/Lumiwealth-Strategies/options_rolling_calls)
 
 # Secrets Configuration
 
@@ -38,9 +39,9 @@ If you are running the strategy on your own computer, you can set these as envir
 
 | Secret            | Description                                                                                   | Example                                 |
 |-------------------|-----------------------------------------------------------------------------------------------|-----------------------------------------|
-| ALPACA_API_KEY    | Your API key from your Alpaca brokerage account                                               | PK7T6YVAX6PMH1EM20YN                    |
-| ALPACA_API_SECRET | Your secret key from your Alpaca brokerage account                                            | 9WgJLS3wIXq54FCpHwwZjCp8JCfJfKuwSrYskKMA |
-| ALPACA_IS_PAPER   | Set to "True" to use the Alpaca paper trading API, set to "False" to use the Alpaca real money trading API (defaults to True) | True                                  |
+| TRADIER_ACCESS_TOKEN    | Your Access Token from Tradier                                              | qTRz3zUrl9244AHUw4AoyAPgvYra                    |
+| TRADIER_ACCOUNT_NUMBER | Your Account Number from Tradier                                           | VA12204793 |
+| TRADIER_IS_PAPER   | Set to "True" to use the paper trading API, set to "False" to use the real money trading API (defaults to True) | True                                  |
 | IS_BACKTESTING    | Set to "True" to run the strategy in backtesting mode, set to "False" to run the strategy live (defaults to False) | False                                  |                            |
 | POLYGON_API_KEY   | Your API key from your Polygon account, only needed if you are backtesting                    | a7py0zIdhxde6QkX8OjjKNp7cD87hwKU        |
 
