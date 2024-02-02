@@ -152,7 +152,7 @@ cython_debug/
 #.idea/
 
 # Apple Files
-Icon
+Icon*
 .DS_Store
 .local/**
 Icon?
