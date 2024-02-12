@@ -1,12 +1,11 @@
 import os
 from datetime import datetime, timedelta
 
+from credentials import IS_BACKTESTING
 from lumibot.backtesting import PolygonDataBacktesting
 from lumibot.entities import Asset, TradingFee
 from lumibot.strategies.strategy import Strategy
 from lumibot.traders import Trader
-
-from credentials import IS_BACKTESTING
 
 """
 Strategy Description
@@ -29,8 +28,6 @@ class OptionsRollingCalls(Strategy):
         "days_to_expiry": 10,  # How many days until the call option expires when we buy it
         "days_before_expiry_to_sell": 1,  # How many days before expiry to sell the call (if None, hold until expiry)
     }
-
-    strategy_name = f"Options Rolling Calls on {parameters['symbol']} with {parameters['pct_portfolio_in_calls']*100}% of portfolio in calls"
 
     def initialize(self):
         # There is only one trading operation per day
@@ -225,9 +222,8 @@ if __name__ == "__main__":
 
         trader = Trader()
 
-        from lumibot.brokers import Tradier
-
         from credentials import TRADIER_CONFIG
+        from lumibot.brokers import Tradier
 
         broker = Tradier(TRADIER_CONFIG)
 
@@ -251,9 +247,14 @@ if __name__ == "__main__":
         # Configuration Options
         ####
 
-        backtesting_start = datetime(2020, 1, 1)
-        backtesting_end = datetime(2024, 1, 17)
+        backtesting_start = datetime(2020, 3, 1)
+        backtesting_end = datetime(2024, 2, 8)
         trading_fee = TradingFee(percent_fee=0.001)  # 0.1% fee per trade
+
+        # Set the name of the strategy based on the parameters
+        params = OptionsRollingCalls.parameters
+        strategy_name = f"Options Rolling Calls on {params['symbol']} with \
+            {params['days_to_expiry']} DTE {params['pct_portfolio_in_calls']*100}% of portfolio in calls"
 
         ####
         # Start Backtesting
@@ -268,5 +269,5 @@ if __name__ == "__main__":
             sell_trading_fees=[trading_fee],
             polygon_api_key=POLYGON_CONFIG["API_KEY"],
             polygon_has_paid_subscription=True,
-            name=OptionsRollingCalls.strategy_name,
+            name=strategy_name,
         )
