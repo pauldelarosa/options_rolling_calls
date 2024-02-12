@@ -37,13 +37,15 @@ The strategy can be configured by setting the following secrets in the replit se
 
 If you are running the strategy on your own computer, you can set these as environment variables.
 
-| Secret            | Description                                                                                   | Example                                 |
-|-------------------|-----------------------------------------------------------------------------------------------|-----------------------------------------|
-| TRADIER_ACCESS_TOKEN    | Your Access Token from Tradier                                              | qTRz3zUrl9244AHUw4AoyAPgvYra                    |
-| TRADIER_ACCOUNT_NUMBER | Your Account Number from Tradier                                           | VA12204793 |
-| TRADIER_IS_PAPER   | Set to "True" to use the paper trading API, set to "False" to use the real money trading API (defaults to True) | True                                  |
-| IS_BACKTESTING    | Set to "True" to run the strategy in backtesting mode, set to "False" to run the strategy live (defaults to False) | False                                  |                            |
-| POLYGON_API_KEY   | Your API key from your Polygon account, only needed if you are backtesting                    | a7py0zIdhxde6QkX8OjjKNp7cD87hwKU        |
+| Secret                          | Description                                                                                                  | Example                                        |
+|---------------------------------|--------------------------------------------------------------------------------------------------------------|------------------------------------------------|
+| TRADIER_ACCESS_TOKEN            | Your Access Token from Tradier                                                                               | qTRz3zUrl9244AHUw4AoyAPgvYra                   |
+| TRADIER_ACCOUNT_NUMBER          | Your Account Number from Tradier                                                                             | VA12204793                                     |
+| TRADIER_IS_PAPER                | Set to "True" to use the paper trading API, set to "False" to use the real money trading API (defaults to True) | True                                           |
+| IS_BACKTESTING                  | Set to "True" to run the strategy in backtesting mode, set to "False" to run the strategy live (defaults to False) | False                                         |
+| POLYGON_API_KEY                 | Your API key from your Polygon account, only needed if you are backtesting                                   | a7py0zIdhxde6QkX8OjjKNp7cD87hwKU               |
+| DISCORD_WEBHOOK_URL             | (Optional) Your Discord webhook URL, only needed if you want to send notifications to Discord. Learn how to get a Discord webhook URL here: https://support.discord.com/hc/en-us/articles/228383668-Intro-to-Webhooks | https://discord.com/api/webhooks/123456789/   |
+| ACCOUNT_HISTORY_DB_CONNECTION_STR | (Optional) Your connection string to your account history database, only needed if you want to save your account history to a database | sqlite:///account_history.db                |
 
 # Modifying the Parameters
 

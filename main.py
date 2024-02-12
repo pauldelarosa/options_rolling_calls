@@ -1,3 +1,4 @@
+import os
 from datetime import datetime, timedelta
 
 from lumibot.backtesting import PolygonDataBacktesting
@@ -230,7 +231,13 @@ if __name__ == "__main__":
 
         broker = Tradier(TRADIER_CONFIG)
 
-        strategy = OptionsRollingCalls(broker=broker)
+        strategy = OptionsRollingCalls(
+            broker=broker,
+            discord_webhook_url=os.environ.get("DISCORD_WEBHOOK_URL"),
+            account_history_db_connection_str=os.environ.get(
+                "ACCOUNT_HISTORY_DB_CONNECTION_STR"
+            ),
+        )
         trader.add_strategy(strategy)
         trader.run_all()
 
