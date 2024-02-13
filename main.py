@@ -1,11 +1,12 @@
 import os
 from datetime import datetime, timedelta
 
-from credentials import IS_BACKTESTING
 from lumibot.backtesting import PolygonDataBacktesting
 from lumibot.entities import Asset, TradingFee
 from lumibot.strategies.strategy import Strategy
 from lumibot.traders import Trader
+
+from credentials import IS_BACKTESTING
 
 """
 Strategy Description
@@ -26,7 +27,7 @@ class OptionsRollingCalls(Strategy):
         "fixed_income_symbol": "USFR",  # The fixed income ETF that we will be using
         "pct_call_out_of_money": 0.0,  # How far out of the money the call should be
         # How much of the portfolio should be in call options
-        "pct_portfolio_in_calls": 0.25,
+        "pct_portfolio_in_calls": 0.10,
         "days_to_expiry": 10,  # How many days until the call option expires when we buy it
         "days_before_expiry_to_sell": 1,  # How many days before expiry to sell the call (if None, hold until expiry)
     }
@@ -254,8 +255,9 @@ if __name__ == "__main__":
 
         trader = Trader()
 
-        from credentials import TRADIER_CONFIG
         from lumibot.brokers import Tradier
+
+        from credentials import TRADIER_CONFIG
 
         broker = Tradier(TRADIER_CONFIG)
 
