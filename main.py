@@ -20,11 +20,13 @@ current price of the underlying asset. The remaining account balance will be use
 
 class OptionsRollingCalls(Strategy):
     parameters = {
-        "symbol": "QQQ",  # The symbol that we will be using to buy call options
+        "underlying_asset": Asset(
+            symbol="QQQ", asset_type=Asset.AssetType.STOCK
+        ),  # The underlying asset we will be using
         "fixed_income_symbol": "USFR",  # The fixed income ETF that we will be using
         "pct_call_out_of_money": 0.0,  # How far out of the money the call should be
         # How much of the portfolio should be in call options
-        "pct_portfolio_in_calls": 0.06,
+        "pct_portfolio_in_calls": 0.25,
         "days_to_expiry": 10,  # How many days until the call option expires when we buy it
         "days_before_expiry_to_sell": 1,  # How many days before expiry to sell the call (if None, hold until expiry)
     }
@@ -37,18 +39,12 @@ class OptionsRollingCalls(Strategy):
         self.invalid_expiry_dates = []
 
     def on_trading_iteration(self):
-        symbol = self.parameters["symbol"]
+        underlying_asset = self.parameters["underlying_asset"]
         fixed_income_symbol = self.parameters["fixed_income_symbol"]
         pct_call_out_of_money = self.parameters["pct_call_out_of_money"]
         pct_portfolio_in_calls = self.parameters["pct_portfolio_in_calls"]
         days_to_expiry = self.parameters["days_to_expiry"]
         days_before_expiry_to_sell = self.parameters["days_before_expiry_to_sell"]
-
-        # Get the price of the unleveraged asset
-        fixed_income_price = self.get_last_price(fixed_income_symbol)
-
-        # Add a lines to our chart for the fixed income symbol
-        self.add_line(fixed_income_symbol, fixed_income_price, "red")
 
         # Get all our positions
         positions = self.get_positions()
@@ -56,47 +52,26 @@ class OptionsRollingCalls(Strategy):
         # Get the amount of cash we have
         cash = self.get_cash()
 
-        # If we have extra cash, buy more of the fixed income ETF
-        if cash > (fixed_income_price * 2):
-            # Log that we are buying more of the fixed income ETF
-            self.log_message(
-                f"Buying more of the fixed income ETF {fixed_income_symbol} because we have extra cash"
-            )
-
-            # Buy more of the stock with the extra cash
-
-            # Calculate the quantity of the asset we can buy
-            quantity = cash // fixed_income_price
-
-            # If we have enough cash to buy at least one share, buy
-            if quantity >= 1:
-                order = self.create_order(fixed_income_symbol, quantity, "buy")
-                self.submit_order(order)
-
-                # Add a marker to our chart for when we bought
-                self.add_marker(
-                    f"Buy {fixed_income_symbol}",
-                    symbol="triangle-up",
-                    value=fixed_income_price,
-                    color="green",
-                )
-        else:
-            # Log that we are not buying more of the fixed income ETF
-            self.log_message(
-                f"Not buying more of the fixed income ETF {fixed_income_symbol} because we don't have extra cash"
-            )
+        # Get the current value of our portfolio
+        portfolio_value = self.get_portfolio_value()
 
         # Get the current price of the underlying asset
-        underlying_price = self.get_last_price(symbol)
-        self.add_line(symbol, underlying_price, "blue")
+        underlying_price = self.get_last_price(underlying_asset)
+        self.add_line(underlying_asset.symbol, underlying_price, "blue")
+
+        # Get the price of the unleveraged asset
+        fixed_income_price = self.get_last_price(fixed_income_symbol)
+
+        # Add a lines to our chart for the fixed income symbol
+        self.add_line(fixed_income_symbol, fixed_income_price, "red")
 
         # Check if we currently own any calls, if we don't, buy some
         own_calls = False
         for position in positions:
             if (
-                position.asset.asset_type == "option"
-                and position.asset.right == "CALL"
-                and position.asset.symbol == symbol
+                position.asset.asset_type == Asset.AssetType.OPTION
+                and position.asset.right == Asset.OptionRight.CALL
+                and position.asset.symbol == underlying_asset.symbol
             ):
                 own_calls = True
 
@@ -123,10 +98,54 @@ class OptionsRollingCalls(Strategy):
 
                 break
 
+        # If we have extra cash, buy more of the fixed income ETF
+        if cash > (fixed_income_price * 2):
+            # If we don't own calls yet, subtract the amount of cash we will use to buy the calls
+            if not own_calls:
+                cash_for_fixed_income = cash - (
+                    portfolio_value * pct_portfolio_in_calls
+                )
+            else:
+                cash_for_fixed_income = cash
+
+            # Buy more of the stock with the extra cash
+            # Calculate the quantity of the asset we can buy
+            quantity = cash_for_fixed_income // fixed_income_price
+
+            # If we have enough cash to buy at least one share, buy
+            if quantity >= 1:
+                # Log that we are buying more of the fixed income ETF
+                self.log_message(
+                    f"Buying more of the fixed income ETF {fixed_income_symbol} because we have extra cash"
+                )
+
+                order = self.create_order(fixed_income_symbol, quantity, "buy")
+                self.submit_order(order)
+
+                # Add a marker to our chart for when we bought
+                self.add_marker(
+                    f"Buy {fixed_income_symbol}",
+                    symbol="triangle-up",
+                    value=fixed_income_price,
+                    color="green",
+                )
+            else:
+                # Log that we are not buying more of the fixed income ETF
+                self.log_message(
+                    f"Not buying more of the fixed income ETF {fixed_income_symbol} because we don't have extra cash"
+                )
+        else:
+            # Log that we are not buying more of the fixed income ETF
+            self.log_message(
+                f"Not buying more of the fixed income ETF {fixed_income_symbol} because we don't have extra cash"
+            )
+
         # If we don't own any calls, buy some
         if not own_calls:
             # Log that we are buying calls
-            self.log_message(f"Buying calls on {symbol} because we don't own any")
+            self.log_message(
+                f"Buying calls on {underlying_asset} because we don't own any"
+            )
 
             # Get the current value of our portfolio
             portfolio_value = self.get_portfolio_value()
@@ -154,7 +173,13 @@ class OptionsRollingCalls(Strategy):
             strike = round(strike / 5) * 5
 
             # Create the call asset
-            call_asset = Asset(symbol, "option", expiry_date, strike, "call")
+            call_asset = Asset(
+                underlying_asset.symbol,
+                Asset.AssetType.OPTION,
+                expiry_date,
+                strike,
+                Asset.OptionRight.CALL,
+            )
 
             # Get the last price of the call
             call_price = self.get_last_price(call_asset)
@@ -171,28 +196,35 @@ class OptionsRollingCalls(Strategy):
 
             # If we have enough cash to buy at least one call, buy
             if calls_quantity >= 1:
-                # First, sell some of the stock to buy calls
+                # First, sell some of the stock to buy calls if needed
 
-                # Get the quantity of the symbol to sell
-                symbol_sell_quantity = cash_in_calls // fixed_income_price
+                # Check if we have enough cash to buy the calls
+                if cash_in_calls > cash:
+                    # If we don't have enough cash, sell some of the fixed income ETF
 
-                # If we should sell at least one share, sell
-                if symbol_sell_quantity >= 1:
-                    order = self.create_order(
-                        fixed_income_symbol, symbol_sell_quantity, "sell"
-                    )
-                    self.submit_order(order)
+                    # Calculate the amount of extra cash we need
+                    cash_needed = cash_in_calls - cash
 
-                    # Add a marker to our chart for when we sold
-                    self.add_marker(
-                        f"Sell {fixed_income_symbol}",
-                        symbol="triangle-down",
-                        value=fixed_income_price,
-                        color="red",
-                    )
+                    # Get the quantity of the symbol to sell
+                    symbol_sell_quantity = cash_needed // fixed_income_price
 
-                    # Sleep for 5 seconds to make sure the order goes through
-                    self.sleep(5)
+                    # If we should sell at least one share, sell
+                    if symbol_sell_quantity >= 1:
+                        order = self.create_order(
+                            fixed_income_symbol, symbol_sell_quantity, "sell"
+                        )
+                        self.submit_order(order)
+
+                        # Add a marker to our chart for when we sold
+                        self.add_marker(
+                            f"Sell {fixed_income_symbol}",
+                            symbol="triangle-down",
+                            value=fixed_income_price,
+                            color="red",
+                        )
+
+                        # Sleep for 5 seconds to make sure the order goes through
+                        self.sleep(5)
 
                 # Second, buy the calls
                 # Create the order
@@ -210,7 +242,7 @@ class OptionsRollingCalls(Strategy):
         else:
             # Log that we are not buying calls
             self.log_message(
-                f"Not buying calls on {symbol} because we already own some"
+                f"Not buying calls on {underlying_asset} because we already own some"
             )
 
 
@@ -253,8 +285,7 @@ if __name__ == "__main__":
 
         # Set the name of the strategy based on the parameters
         params = OptionsRollingCalls.parameters
-        strategy_name = f"Options Rolling Calls on {params['symbol']} with \
-            {params['days_to_expiry']} DTE {params['pct_portfolio_in_calls']*100}% of portfolio in calls"
+        strategy_name = f"Options Rolling Calls on {params['underlying_asset'].symbol} with {params['days_to_expiry']} DTE {params['pct_portfolio_in_calls']*100}% of portfolio in calls"
 
         ####
         # Start Backtesting
