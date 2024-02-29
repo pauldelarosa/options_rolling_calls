@@ -1,0 +1,16 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "Launch Jupyter Notebook",
+            "type": "shell",
+            "command": "jupyter notebook --ip=0.0.0.0 --allow-root --no-browser",
+            "problemMatcher": [],
+            "isBackground": true,
+            "presentation": {
+                "reveal": "always",
+                "panel": "new"
+            }
+        }
+    ]
+}

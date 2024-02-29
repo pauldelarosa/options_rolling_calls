@@ -1,0 +1,22 @@
+{
+    "name": "Lumibot Dev Environment",
+    "image": "mcr.microsoft.com/vscode/devcontainers/python:3.11",
+    "customizations": {
+        "vscode": {
+            "settings": {
+                "terminal.integrated.shell.linux": "/bin/bash",
+                "dev.containers.copyGitConfig": true,
+                "editor.formatOnSave": true
+            },
+            "extensions": [
+                "github.copilot",
+                "ms-python.python",
+                "ms-python.vscode-pylance",
+                "yzhang.markdown-all-in-one",
+                "tomoki1207.pdf"
+            ]
+        }
+    },
+    "postCreateCommand": "pip install --upgrade pip setuptools wheel && pip install -r requirements.txt",
+    "remoteUser": "vscode"
+}
